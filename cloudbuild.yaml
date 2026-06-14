@@ -1,0 +1,63 @@
+# cloudbuild.yaml — one-shot build + deploy of the MITRA API to Cloud Run
+# Trigger this with: gcloud builds submit --config cloudbuild.yaml
+
+substitutions:
+  _REGION: 'asia-south1'
+  _SERVICE: 'mitra-api'
+  _AR_REPO: 'mitra'
+  _CLOUD_SQL_INSTANCE: 'watchaugs-mitra:asia-south1:mitra-db'
+  _STORAGE_BUCKET: 'watchaugs-mitra-storage'
+  _APP_BASE_URL: 'https://watchaugs-mitra.web.app'
+  _DB_NAME: 'mitra'
+  _DB_USER: 'postgres'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'
+
+steps:
+  # 1. Build the image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest'
+      - '.'
+
+  # 2. Push image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest'
+
+  # 3. Deploy to Cloud Run
+  #
+  # WHY ^##^ ?
+  # gcloud uses comma as the default separator between env vars.
+  # But ALLOWED_ORIGINS contains commas (multiple URLs).
+  # And CLOUD_SQL_INSTANCE contains colons — so ^:^ breaks that value too.
+  # ^##^ tells gcloud: "use ## as the separator for this list".
+  # None of our values contain ##, so this is safe.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE}'
+      - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}'
+      - '--service-account=mitra-api@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--max-instances=10'
+      - '--min-instances=0'
+      - '--timeout=300'
+      - '--set-env-vars=^##^NODE_ENV=production##GCP_PROJECT_ID=$PROJECT_ID##CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE}##DB_NAME=${_DB_NAME}##DB_USER=${_DB_USER}##STORAGE_BUCKET=${_STORAGE_BUCKET}##APP_BASE_URL=${_APP_BASE_URL}##ALLOWED_ORIGINS=https://watchaugs-mitra.web.app,http://localhost:3000,http://localhost:3001'
+      - '--set-secrets=JWT_SECRET=jwt-secret:latest,JWT_REFRESH_SECRET=jwt-refresh-secret:latest,DB_PASSWORD=db-password:latest'
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest'
+
+timeout: '1200s'

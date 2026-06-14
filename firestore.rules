@@ -1,0 +1,186 @@
+// ════════════════════════════════════════════════════════════════════════════════
+// MITRA Dashboard — Firestore Security Rules v2.0
+// Role-Based Access Control (RBAC) — DPDP Act 2023 Compliant
+//
+// Roles (stored in users/{userId}/role):
+//   superadmin  – Full access to everything
+//   admin       – Full access except audit log deletion
+//   teacher     – Read curriculum, submit quizzes; no admin data
+//   district    – Read analytics for their district only
+//   content     – Upload AR assets, manage curriculum
+//   viewer      – Read-only access to analytics and curriculum
+// ════════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ───────────────────────────────────────────────────────
+
+    // Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Get the user's role from their document
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Get the user's assigned state
+    function userState() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assigned_state;
+    }
+
+    // Role checks
+    function isSuperAdmin() { return isAuth() && userRole() == 'superadmin'; }
+    function isAdmin()      { return isAuth() && (userRole() == 'admin' || userRole() == 'superadmin'); }
+    function isTeacher()    { return isAuth() && userRole() == 'teacher'; }
+    function isContent()    { return isAuth() && userRole() == 'content'; }
+    function isDistrict()   { return isAuth() && userRole() == 'district'; }
+    function isViewer()     { return isAuth() && userRole() == 'viewer'; }
+    function isStaff()      { return isAdmin() || isTeacher() || isContent() || isDistrict() || isViewer(); }
+
+    // Check if resource belongs to user's state
+    function isMyState(stateField) {
+      return resource.data[stateField] == userState() || userState() == 'All India';
+    }
+
+    // ── Users Collection ──────────────────────────────────────────────────────
+    match /users/{userId} {
+      // User can read their own profile; admins can read all
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+
+      // Only admins can create/update users; users can update their own non-role fields
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+        (isAuth() && request.auth.uid == userId &&
+         !request.resource.data.keys().hasAny(['role', 'perm_publish_apps',
+           'perm_upload_unity', 'perm_manage_geo', 'perm_view_analytics',
+           'perm_create_users', 'perm_edit_curriculum', 'perm_approve_content',
+           'perm_export_data', 'perm_manage_ads']));
+
+      // Only superadmin can permanently delete; others can only deactivate
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── AR Assets ─────────────────────────────────────────────────────────────
+    match /ar_assets/{assetId} {
+      // Teachers, content managers, admins can read assets for their state
+      allow read: if isStaff() && isMyState('target_state');
+
+      // Content managers and admins can create/update
+      allow create, update: if isContent() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Curriculum ────────────────────────────────────────────────────────────
+    match /curriculum/{nodeId} {
+      allow read: if isStaff();
+      allow create, update: if isContent() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Quizzes ───────────────────────────────────────────────────────────────
+    match /quizzes/{quizId} {
+      // All staff can read quizzes for their state
+      allow read: if isStaff();
+
+      // Teachers and content managers can create/edit quizzes
+      allow create: if isTeacher() || isContent() || isAdmin();
+      allow update: if (isTeacher() && resource.data.created_by == request.auth.uid) ||
+                       isContent() || isAdmin();
+
+      // Only admins can delete/archive
+      allow delete: if isAdmin();
+
+      // Quiz Questions (subcollection)
+      match /questions/{questionId} {
+        allow read: if isStaff();
+        allow create, update: if isTeacher() || isContent() || isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ── Quiz Attempts (Student Data — DPDP Sensitive) ─────────────────────────
+    match /quiz_attempts/{attemptId} {
+      // Teachers can read attempts for their class; district can read aggregate
+      // NEVER expose raw student PII to viewer role
+      allow read: if isAdmin() ||
+        (isTeacher() && isMyState('state')) ||
+        (isDistrict() && isMyState('state'));
+
+      // Students submit attempts (mobile app auth)
+      allow create: if isAuth();
+
+      // No one can modify submitted attempts (data integrity)
+      allow update: if false;
+
+      // Only admin can purge (DPDP Right to Erasure)
+      allow delete: if isAdmin();
+    }
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+    match /analytics/{docId} {
+      allow read: if isStaff() && (isAdmin() || isMyState('state'));
+      allow create, update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    match /push_notifications/{notifId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Geofences ─────────────────────────────────────────────────────────────
+    match /geofences/{geoId} {
+      allow read: if isStaff();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Audit Logs (CERT-In: 180-day retention, no deletion except superadmin) ─
+    match /audit_logs/{logId} {
+      // Only admins can read audit logs (sensitive security data)
+      allow read: if isAdmin();
+
+      // System creates audit logs; no manual creation by users
+      allow create: if isAdmin();
+
+      // Audit logs CANNOT be modified (tamper-proof)
+      allow update: if false;
+
+      // Only superadmin can delete (for right to erasure compliance with log anonymisation)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Compliance Settings ───────────────────────────────────────────────────
+    match /compliance_settings/{settingId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ── Published Apps / State Apps ───────────────────────────────────────────
+    match /state_apps/{appId} {
+      allow read: if isStaff();
+      allow create, update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Incident Reports (CERT-In) ────────────────────────────────────────────
+    match /incident_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Default: Deny everything else ────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

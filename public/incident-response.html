@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MITRA — Incident Response Policy</title>
+<style>
+body{font-family:'DM Sans',system-ui,sans-serif;background:#0b1120;color:#e2e8f0;max-width:900px;margin:0 auto;padding:40px 24px;line-height:1.7}
+h1{font-size:28px;color:#818cf8;margin-bottom:8px}h2{font-size:18px;color:#a5b4fc;margin-top:32px}
+h3{font-size:15px;color:#c7d2fe}p,li{font-size:14px;color:#94a3b8}
+a{color:#818cf8}li{margin:4px 0}
+.back{display:inline-block;margin-bottom:24px;color:#818cf8;text-decoration:none;font-size:13px}
+</style></head>
+<body>
+<a class="back" href="/">← Back to Dashboard</a>
+<h1>🚨 INCIDENT RESPONSE PLAN</h1>
+<h2>MITRA EdTech Platform — CERT-In Compliance Document</h2>
+<p>**Version:** 2.0 | **Last Updated:** April 2025 | **Classification:** Internal Use Only</p>
+<br>
+<p>---</p>
+<br>
+<h2>1. Purpose & Scope</h2>
+<br>
+<p>This Incident Response Plan (IRP) establishes procedures for detecting, responding to, and recovering from cybersecurity incidents affecting the MITRA platform, in compliance with:</p>
+<br>
+<li>**CERT-In Directions 2022** — Mandatory reporting within **6 hours** of detection</li>
+<li>**Digital Personal Data Protection Act (DPDP Act) 2023** — Data breach notification</li>
+<li>**IT Act 2000** — Section 43A (reasonable security practices)</li>
+<li>**NIC Security Policy** (for government-hosted infrastructure)</li>
+<br>
+<p>---</p>
+<br>
+<h2>2. Incident Classification</h2>
+<br>
+<p>| Severity | Type | Examples | Response SLA |</p>
+<p>|----------|------|----------|-------------|</p>
+<p>| **P0 — Critical** | Data breach, ransomware, system takeover | Student PII exposed, admin credentials compromised | 1 hour |</p>
+<p>| **P1 — High** | Unauthorized access, service disruption | Brute-force attack, API abuse, DDoS | 4 hours |</p>
+<p>| **P2 — Medium** | Policy violation, suspicious activity | Unusual login patterns, failed MFA attempts | 24 hours |</p>
+<p>| **P3 — Low** | Minor issues | Misconfiguration, single failed login | 72 hours |</p>
+<br>
+<p>---</p>
+<br>
+<h2>3. Incident Response Team</h2>
+<br>
+<p>| Role | Responsibility | Contact |</p>
+<p>|------|---------------|---------|</p>
+<p>| Incident Commander | Overall coordination | ciso@mitra.gov.in |</p>
+<p>| Security Engineer | Technical containment & forensics | security@mitra.gov.in |</p>
+<p>| DPO (Data Protection Officer) | DPDP Act compliance & notification | dpo@mitra.gov.in |</p>
+<p>| Communications Lead | Internal & external notifications | comms@mitra.gov.in |</p>
+<p>| Legal Counsel | Legal obligations & liability | legal@mitra.gov.in |</p>
+<br>
+<p>**Emergency Hotline:** +91-XXXX-XXXXXX (24×7)</p>
+<br>
+<p>---</p>
+<br>
+<h2>4. CERT-In Mandatory Reporting (6-Hour Rule)</h2>
+<br>
+<p>Per the **CERT-In Directions 2022** (April 2022), the following incidents MUST be reported to CERT-In within **6 hours** of detection:</p>
+<br>
+<p>```</p>
+<p>CERT-In Incident Reporting Portal: https://www.cert-in.org.in/</p>
+<p>Email: incident@cert-in.org.in</p>
+<p>Phone: 1800-11-4949 (Toll Free)</p>
+<p>```</p>
+<br>
+<h3>Reportable Incident Categories:</h3>
+<li>Targeted scanning/probing of critical networks</li>
+<li>Compromise of critical systems (servers, databases)</li>
+<li>Ransomware attacks</li>
+<li>Phishing attacks targeting users</li>
+<li>Malicious code (malware, virus, spyware)</li>
+<li>DDoS attacks</li>
+<li>Data breaches involving personal data</li>
+<li>Attacks on IoT/OT devices</li>
+<li>**Any breach involving children's educational data**</li>
+<br>
+<h3>Report Format (CERT-In Compliant):</h3>
+<p>```json</p>
+<p>{</p>
+<p>  "incident_type": "",</p>
+<p>  "detection_time": "YYYY-MM-DDTHH:MM:SSZ",</p>
+<p>  "reporting_time": "YYYY-MM-DDTHH:MM:SSZ",</p>
+<p>  "affected_systems": [],</p>
+<p>  "estimated_impact": "",</p>
+<p>  "actions_taken": [],</p>
+<p>  "organization": "MITRA EdTech Platform",</p>
+<p>  "poc_name": "",</p>
+<p>  "poc_email": "",</p>
+<p>  "poc_phone": ""</p>
+<p>}</p>
+<p>```</p>
+<br>
+<p>---</p>
+<br>
+<h2>5. Response Procedures</h2>
+<br>
+<h3>Phase 1: Identification (0–30 minutes)</h3>
+<li>[ ] Alert received via monitoring system / user report</li>
+<li>[ ] Assign Incident ID: `INC-YYYY-MM-DD-###`</li>
+<li>[ ] Classify severity (P0–P3)</li>
+<li>[ ] Notify Incident Commander</li>
+<li>[ ] Begin incident log</li>
+<br>
+<h3>Phase 2: Containment (30 min – 2 hours)</h3>
+<li>[ ] Isolate affected systems from network</li>
+<li>[ ] Revoke compromised credentials immediately</li>
+<li>[ ] Block malicious IPs at firewall/CDN level</li>
+<li>[ ] Enable enhanced logging</li>
+<li>[ ] Preserve forensic evidence (disk images, logs)</li>
+<li>[ ] Notify CERT-In if P0/P1 (must be within 6 hours of detection)</li>
+<br>
+<h3>Phase 3: Eradication (2–24 hours)</h3>
+<li>[ ] Identify root cause</li>
+<li>[ ] Remove malware/malicious access</li>
+<li>[ ] Patch vulnerabilities</li>
+<li>[ ] Rotate all potentially compromised secrets</li>
+<li>[ ] Verify no backdoors remain</li>
+<br>
+<h3>Phase 4: Recovery (24–72 hours)</h3>
+<li>[ ] Restore from clean backup</li>
+<li>[ ] Verify system integrity</li>
+<li>[ ] Enable monitoring</li>
+<li>[ ] Phased service restoration</li>
+<li>[ ] Notify affected users (DPDP Act §7)</li>
+<br>
+<h3>Phase 5: Post-Incident (72 hours – 30 days)</h3>
+<li>[ ] Prepare detailed incident report</li>
+<li>[ ] Root cause analysis</li>
+<li>[ ] Update security controls</li>
+<li>[ ] User awareness training if applicable</li>
+<li>[ ] Update this IRP if needed</li>
+<li>[ ] Submit final report to CERT-In (within 30 days)</li>
+<br>
+<p>---</p>
+<br>
+<h2>6. Data Breach Notification (DPDP Act 2023)</h2>
+<br>
+<strong>If personal data is breached:</strong>
+<br>
+<p>1. **Internal notification:** DPO within 1 hour</p>
+<p>2. **CERT-In notification:** Within 6 hours (per CERT-In Directions 2022)</p>
+<p>3. **Board notification:** Within 24 hours</p>
+<p>4. **Affected individuals:** As soon as practicable (within 72 hours)</p>
+<p>5. **Data Protection Board (DPDP §8):** Within 72 hours once established</p>
+<br>
+<h3>Notification Template:</h3>
+<p>```</p>
+<p>Subject: MITRA Data Breach Notification — [DATE]</p>
+<br>
+<p>Dear [User/Authority],</p>
+<br>
+<p>We are writing to inform you of a security incident that may affect your data.</p>
+<br>
+<p>WHAT HAPPENED: [Brief description]</p>
+<p>WHEN: [Date/time detected]</p>
+<p>WHAT DATA: [Types of data potentially affected]</p>
+<p>WHAT WE'VE DONE: [Actions taken]</p>
+<p>WHAT YOU SHOULD DO: [User actions recommended]</p>
+<p>FOR MORE INFORMATION: dpo@mitra.gov.in | +91-XXXX-XXXXXX</p>
+<p>```</p>
+<br>
+<p>---</p>
+<br>
+<h2>7. Security Controls (CERT-In 2022 — Section 3)</h2>
+<br>
+<h3>Mandatory Controls Implemented:</h3>
+<li>[x] **System Clock Synchronisation** — All servers synced to NTP (STQC)</li>
+<li>[x] **Log Retention** — 180 days minimum for all audit/security logs</li>
+<li>[x] **VPN/Secure Access** — All admin access requires MFA + VPN</li>
+<li>[x] **Password Policy** — Min 8 chars, complexity, 90-day rotation for admins</li>
+<li>[x] **Software Inventory** — Maintained and updated quarterly</li>
+<li>[x] **Virtual Asset Logging** — Cloud resources tagged and logged</li>
+<br>
+<p>---</p>
+<br>
+<h2>8. Forensic Evidence Preservation</h2>
+<br>
+<p>Per CERT-In requirements, preserve the following for minimum **180 days**:</p>
+<li>System logs (application, server, database, firewall)</li>
+<li>Authentication logs (login attempts, MFA events)</li>
+<li>Network flow logs</li>
+<li>User activity audit trails</li>
+<li>API access logs</li>
+<br>
+<p>**Storage:** Tamper-proof, encrypted, separate from production systems</p>
+<br>
+<p>---</p>
+<br>
+<h2>9. Backup & Recovery</h2>
+<br>
+<p>| System | Backup Frequency | RTO | RPO | Location |</p>
+<p>|--------|-----------------|-----|-----|---------|</p>
+<p>| PostgreSQL DB | Every 6 hours | 4 hours | 6 hours | Mumbai + Hyderabad |</p>
+<p>| AR Asset Storage | Daily | 24 hours | 24 hours | S3-compatible |</p>
+<p>| Config/Secrets | On change | 1 hour | 0 | Vault encrypted |</p>
+<br>
+<p>---</p>
+<br>
+<h2>10. Annual Review</h2>
+<br>
+<p>This document must be reviewed and updated:</p>
+<li>Annually (April of each year)</li>
+<li>After any P0/P1 incident</li>
+<li>When significant system changes occur</li>
+<li>When CERT-In issues new directions</li>
+<br>
+<p>**Next Review Date:** April 2026</p>
+<br>
+<p>---</p>
+<br>
+<h2>11. References</h2>
+<br>
+<li>CERT-In Directions, April 2022: https://www.cert-in.org.in</li>
+<li>Digital Personal Data Protection Act 2023: https://meity.gov.in/dpdpa</li>
+<li>IT Act 2000 (as amended): https://meity.gov.in</li>
+<li>NCERT Data Guidelines: https://ncert.nic.in</li>
+<li>NIC Security Policy: https://nic.in/security</li>
+<br>
+<p>---</p>
+<br>
+<p>*This document is classified as INTERNAL USE ONLY. Do not share with unauthorised personnel.*</p>
+<br>
+<p>**Approved by:** Chief Information Security Officer, MITRA Platform  </p>
+<p>**Document ID:** MITRA-IRP-2025-001</p>
+<br>
+</body></html>

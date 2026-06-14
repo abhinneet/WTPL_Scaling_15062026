@@ -1,0 +1,243 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ads-compliance.css
+   Styles specific to Advertisements and Legal & Compliance pages.
+   
+   HOW TO INJECT:
+     In your index.html <head>, add:
+       <link rel="stylesheet" href="/ads-compliance.css">
+     Place it after your existing <style> block or main CSS file.
+
+   NOTE: Most styles already exist in index.html's <style> block.
+   This file only adds any missing classes. It is safe to include
+   even if some classes are already defined — CSS won't break.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── AD MANAGER ─────────────────────────────────────────────────── */
+.ad-table-wrap {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.ad-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ad-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  overflow-x: auto;
+}
+
+.ad-tab {
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text2);
+  transition: .2s;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.ad-tab:hover {
+  background: var(--glow);
+  color: var(--text);
+}
+.ad-tab.active {
+  background: rgba(236, 72, 153, .2);
+  color: #f9a8d4;
+  border-color: rgba(236, 72, 153, .3);
+}
+
+.ad-section { display: none; }
+.ad-section.active { display: block; }
+
+/* Upload zone for ads */
+.upload-zone-ad {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 30px 24px;
+  text-align: center;
+  transition: .2s;
+  cursor: pointer;
+  position: relative;
+  background: rgba(236, 72, 153, .03);
+}
+.upload-zone-ad:hover {
+  border-color: var(--accent2);
+  background: rgba(236, 72, 153, .07);
+}
+.upload-zone-ad input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
+/* Counter input widget */
+.counter-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.counter-input button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: .15s;
+}
+.counter-input button:hover {
+  background: var(--glow);
+  border-color: var(--accent);
+}
+.counter-input input {
+  width: 56px;
+  text-align: center;
+  padding: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+
+/* Checklist grid */
+.checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: .15s;
+}
+.checklist-item:hover {
+  border-color: var(--accent);
+  background: var(--glow);
+}
+.checklist-item input[type=checkbox] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Targeting filter sections */
+.target-filter-section {
+  background: rgba(99, 102, 241, .04);
+  border: 1px solid rgba(99, 102, 241, .15);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 16px;
+}
+.target-filter-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+/* ── COMPLIANCE / LEGAL ──────────────────────────────────────────── */
+.stat-mini {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.stat-mini-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+.stat-mini-lbl {
+  font-size: 10px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-top: 2px;
+}
+
+/* Extra button sizes */
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.btn-warn {
+  background: rgba(245, 158, 11, .15);
+  border: 1px solid rgba(245, 158, 11, .3);
+  color: #fcd34d;
+}
+.btn-warn:hover {
+  background: rgba(245, 158, 11, .25);
+}
+
+/* Compliance certificate modal overlay */
+#cert-modal {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, .75);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 800px) {
+  .ad-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ad-tab-bar {
+    gap: 4px;
+  }
+  .ad-tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
