@@ -13,9 +13,11 @@
     "lint": "eslint routes/ db/ middleware/ lib/ --ext .js"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^8.3.1",
     "@google-cloud/cloud-sql-connector": "^1.4.0",
+    "@google-cloud/pubsub": "^5.3.1",
     "@google-cloud/secret-manager": "^5.5.0",
-    "@google-cloud/storage": "^7.11.0",
+    "@google-cloud/storage": "^7.21.0",
     "axios": "^1.16.1",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -25,6 +27,7 @@
     "express-rate-limit": "^7.4.0",
     "express-validator": "^7.1.0",
     "file-type": "^16.5.4",
+    "firebase-admin": "^14.0.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
