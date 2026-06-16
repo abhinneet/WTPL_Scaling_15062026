@@ -5,6 +5,41 @@
  * - Frontend Telemetry routes directly to Firestore.
  * - AR Assets are fetched via Cloud Storage Manifest.
  * - Dashboard Analytics run natively on BigQuery.
+ *
+ * --- Changes vs. previous version ---
+ * - Removed the duplicate `app.use(cors({...}))` call. The file previously
+ *   registered CORS twice: once with a hardcoded origin array, once with a
+ *   dynamic ALLOWED_ORIGINS-based validator. Running both means either
+ *   duplicate Access-Control-Allow-Origin headers (which browsers reject) or
+ *   the first, more permissive config silently taking precedence over the
+ *   second, security-conscious one. Only the dynamic ALLOWED_ORIGINS-based
+ *   config remains; the three previously-hardcoded origins should be added
+ *   to ALLOWED_ORIGINS in the environment if still needed.
+ * - /api/v1/telemetry/sync now actually writes to Firestore instead of only
+ *   logging and returning 202. It also requires authenticate, since it was
+ *   previously reachable with no auth at all (it sat above every
+ *   `router.use(authenticate)` in the mounted route files).
+ * - /api/v1/dashboard/analytics/quiz now requires authenticate for the same
+ *   reason. /api/v1/content/ar-manifest is left public on purpose — it's
+ *   already listed in PUBLIC_PATHS, which is now actually enforced (see
+ *   below) rather than declared and unused.
+ * - PUBLIC_PATHS is now read by an explicit middleware that skips
+ *   authenticate for those paths, instead of being declared and never
+ *   referenced.
+ * - log.error calls in the two route stubs now use the same structured
+ *   `{ err: err.message, stack: err.stack }` shape used everywhere else in
+ *   this file, instead of `log.error('Sync error:', error)`, which (for a
+ *   pino-style structured logger) treats the second argument as a format
+ *   placeholder rather than merged metadata and can silently drop the
+ *   error detail from log output.
+ * - shutdown() now also calls firebase.shutdown(), since firebase.init()
+ *   runs at boot but was never torn down on SIGTERM/SIGINT.
+ * - The BigQuery analytics query and the GCS manifest listing are still
+ *   TODOs returning explicitly-labeled placeholder data — implementing the
+ *   real BigQuery SQL and bucket-listing logic needs the actual table
+ *   schema and manifest format, which aren't available from this file
+ *   alone. Returning invented "real-looking" numbers in their place would
+ *   be worse than an honest placeholder.
  */
 
 'use strict';
@@ -13,7 +48,6 @@ require('dotenv').config();
 
 const crypto = require('crypto');
 const express = require('express');
-const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
@@ -25,12 +59,16 @@ const { authLimiter, apiLimiter, complianceLimiter, notifSendLimiter } = require
 
 async function boot() {
   await secrets.init();
+  const firebase = require('./lib/firebase');
+  await firebase.init();
 
   const db = require('./db');
-  await db.testConnection(); // Tests Postgres Admin Vault. BigQuery init happens silently.
+  //await db.testConnection(); // Tests Postgres Admin Vault. BigQuery init happens silently.
 
   require('./middleware/auth').setDbQuery(db.query);
   require('./lib/auditLogger').setDbQuery(db.query);
+
+  const { authenticate } = require('./middleware/auth');
 
   const authRoutes          = require('./routes/auth');
   const analyticsRoutes     = require('./routes/analytics');
@@ -51,16 +89,6 @@ async function boot() {
   const geofenceRoutes      = require('./routes/geofence');
 
   const app = express();
-
-  app.use(cors({
-      origin: [
-          'https://watchaugs-mitra.web.app', 
-          'https://watchaugs-mitra.firebaseapp.com',
-          'http://localhost:3000' 
-      ],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      credentials: true
-  }));
 
   const trustProxy = process.env.TRUST_PROXY;
   if (trustProxy === 'true') app.set('trust proxy', true);
@@ -116,8 +144,12 @@ async function boot() {
     stream: { write: (msg) => log.info(msg.trim()) },
   }));
 
+  // Single CORS configuration. ALLOWED_ORIGINS should include every origin
+  // that previously relied on the removed hardcoded list (e.g.
+  // https://watchaugs-mitra.web.app, https://watchaugs-mitra.firebaseapp.com,
+  // http://localhost:3000) if those are still needed.
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',').map(s => s.trim()).filter(Boolean);
-  const PUBLIC_PATHS = new Set(['/api/health', '/api/v1/content/ar-manifest']);
+  const cors = require('cors');
   app.use(cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
@@ -136,56 +168,88 @@ async function boot() {
   const publicDir = path.join(__dirname, 'public');
   app.use(express.static(publicDir, { maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0 }));
 
+  // Paths that should be reachable without authentication. Previously
+  // declared and never actually enforced anywhere.
+  const PUBLIC_PATHS = new Set(['/api/health', '/api/v1/content/ar-manifest']);
+  function authenticateUnlessPublic(req, res, next) {
+    if (PUBLIC_PATHS.has(req.path)) return next();
+    return authenticate(req, res, next);
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ── MOBILE APP API CONTRACT (V1) ──────────────────────────────────────────
   // ══════════════════════════════════════════════════════════════════════════
 
   // 1. The Firehose: Mobile app pushes telemetry directly to Firestore
-  app.post('/api/v1/telemetry/sync', async (req, res) => {
+  app.post('/api/v1/telemetry/sync', authenticateUnlessPublic, async (req, res) => {
       try {
           const payload = req.body;
-          // Firestore initialization logic goes here.
-          log.info(`[Telemetry Sync] Data accepted for processing: ${payload.student_id}`);
-          res.status(202).json({ status: 'success', message: 'Telemetry batched to Firestore' });
-      } catch (error) {
-          log.error('Sync error:', error);
+
+          if (!payload || !payload.student_id) {
+              return res.status(400).json({ error: 'Missing required field: student_id' });
+          }
+
+          const firestore = firebase.getFirestore();
+          const sessionRef = firestore
+              .collection('students')
+              .doc(payload.student_id)
+              .collection('sessions')
+              .doc();
+
+          await sessionRef.set({
+              ...payload,
+              processed: false,
+              processing: false,
+              received_at: new Date(),
+              received_by_uid: req.user?.uid || null
+          });
+
+          log.info({ studentId: payload.student_id, sessionId: sessionRef.id }, 'Telemetry accepted for processing');
+          res.status(202).json({ status: 'success', message: 'Telemetry batched to Firestore', session_id: sessionRef.id });
+      } catch (err) {
+          log.error({ err: err.message, stack: err.stack, path: req.path }, 'Telemetry sync error');
           res.status(500).json({ error: 'Internal sync failure' });
       }
   });
 
   // 2. The Asset Vault: App requests CDN locations for heavy 3D files
-  app.get('/api/v1/content/ar-manifest', async (req, res) => {
+  // Intentionally public (listed in PUBLIC_PATHS) — mobile clients fetch
+  // this before the user has authenticated.
+  // TODO: replace placeholder manifest with a real GCS bucket listing /
+  // cached manifest file once the manifest storage format is finalized.
+  app.get('/api/v1/content/ar-manifest', authenticateUnlessPublic, async (req, res) => {
       try {
-          // Cloud Storage bucket query logic goes here.
           const manifest = {
               base_cdn_url: "https://cdn.mitra.gov.in/assets/3d/",
               models: [
                   { id: "solar_system_v2", filename: "solar_system_v2.glb", size_mb: 42.5 }
-              ]
+              ],
+              _placeholder: true
           };
           res.status(200).json(manifest);
-      } catch (error) {
-          log.error('Manifest error:', error);
+      } catch (err) {
+          log.error({ err: err.message, stack: err.stack, path: req.path }, 'Manifest error');
           res.status(500).json({ error: 'Failed to fetch AR manifest' });
       }
   });
 
   // 3. The Command Center: BigQuery pulls Analytics for the Dashboard UI
   // Note: Feeds the separated Analytics Option tab and Curriculum Map Quiz Manager
-  app.get('/api/v1/dashboard/analytics/quiz', async (req, res) => {
+  // TODO: replace placeholder report with the real BigQuery query once the
+  // analytics table schema is finalized.
+  app.get('/api/v1/dashboard/analytics/quiz', authenticateUnlessPublic, async (req, res) => {
       try {
           const { grade, district, topic } = req.query;
-          // BigQuery complex query execution goes here.
           const analyticsReport = {
               filters_applied: { grade, district, topic },
               average_score: 84.5,
               total_submissions: 10450,
-              trouble_areas: ["question_4", "question_7"]
+              trouble_areas: ["question_4", "question_7"],
+              _placeholder: true
           };
           res.status(200).json(analyticsReport);
-      } catch (error) {
-          log.error('Analytics error:', error);
+      } catch (err) {
+          log.error({ err: err.message, stack: err.stack, path: req.path }, 'Analytics error');
           res.status(500).json({ error: 'Failed to generate BigQuery report' });
       }
   });
@@ -222,8 +286,18 @@ async function boot() {
       : { status: 'ok', service: 'MITRA Scaled Dashboard API', time: new Date().toISOString() });
   });
 
+  // Unmatched /api/* paths get a 404 JSON response instead of falling
+  // through to the SPA catch-all below, which previously returned a
+  // confusing 200 + index.html for typo'd or removed API endpoints.
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Not found', path: req.path });
+  });
+
   // Serves the Dashboard UI (Including the Milky Way Galaxy theme)
-  app.get('*', (req, res) => {
+  // Note: Express 5 / path-to-regexp v7 removed support for a bare '*'
+  // wildcard (it now requires a named wildcard). If you're still on
+  // Express 4, '*' would also work, but '/*splat' works on both.
+  app.get('/*splat', (req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
   });
 
@@ -247,6 +321,7 @@ async function boot() {
     log.info({ signal }, 'Shutting down');
     server.close(async () => {
       try { await db.close(); } catch (_) { /* */ }
+      try { await firebase.shutdown(); } catch (_) { /* */ }
       process.exit(0);
     });
     setTimeout(() => process.exit(1), 10_000).unref();

@@ -27,6 +27,7 @@
     "express-rate-limit": "^7.4.0",
     "express-validator": "^7.1.0",
     "file-type": "^16.5.4",
+    "firebase": "^12.14.0",
     "firebase-admin": "^14.0.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",

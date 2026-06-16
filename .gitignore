@@ -54,3 +54,7 @@ tmp/
 temp/
 *.tmp
 .tmp/
+
+
+# Firebase secrets - NEVER commit to GitHub
+config/secrets/
