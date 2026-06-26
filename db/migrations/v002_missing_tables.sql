@@ -167,10 +167,7 @@ WHERE topic IS NOT NULL
   AND topic != ''
 ON CONFLICT DO NOTHING;
 
--- ── 10. Mark migration as complete ───────────────────────────────────────────
-INSERT INTO _migrations (filename, applied_at)
-VALUES ('v002_missing_tables.sql', NOW())
-ON CONFLICT (filename) DO NOTHING;
+
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- VERIFICATION QUERIES — Run these after migration to confirm success
