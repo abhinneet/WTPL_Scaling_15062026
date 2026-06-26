@@ -5,11 +5,11 @@ substitutions:
   _REGION: 'asia-south1'
   _SERVICE: 'mitra-api'
   _AR_REPO: 'mitra'
-  _CLOUD_SQL_INSTANCE: 'watchaugs-mitra:asia-south1:mitra-db'
-  _STORAGE_BUCKET: 'watchaugs-mitra-storage'
-  _APP_BASE_URL: 'https://watchaugs-mitra.web.app'
+  _CLOUD_SQL_INSTANCE: 'mitra-production-core:asia-south1:mitra-db'
+  _STORAGE_BUCKET: 'mitra-production-core.firebasestorage.app'
+  _APP_BASE_URL: 'https://mitra-production-core.web.app'
   _DB_NAME: 'mitra'
-  _DB_USER: 'postgres'
+  _DB_USER: 'mitra_app'
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -54,8 +54,9 @@ steps:
       - '--max-instances=10'
       - '--min-instances=0'
       - '--timeout=300'
-      - '--set-env-vars=^##^NODE_ENV=production##GCP_PROJECT_ID=$PROJECT_ID##CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE}##DB_NAME=${_DB_NAME}##DB_USER=${_DB_USER}##STORAGE_BUCKET=${_STORAGE_BUCKET}##APP_BASE_URL=${_APP_BASE_URL}##ALLOWED_ORIGINS=https://watchaugs-mitra.web.app,http://localhost:3000,http://localhost:3001'
+      - '--set-env-vars=^##^NODE_ENV=production##GCP_PROJECT_ID=$PROJECT_ID##CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE}##DB_NAME=${_DB_NAME}##DB_USER=${_DB_USER}##STORAGE_BUCKET=${_STORAGE_BUCKET}##APP_BASE_URL=${_APP_BASE_URL}##ALLOWED_ORIGINS=https://mitra-production-core.web.app,http://localhost:3000,http://localhost:3001'
       - '--set-secrets=JWT_SECRET=jwt-secret:latest,JWT_REFRESH_SECRET=jwt-refresh-secret:latest,DB_PASSWORD=db-password:latest'
+      - '--allow-unauthenticated'
 
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest'

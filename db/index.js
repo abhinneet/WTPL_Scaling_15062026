@@ -19,7 +19,9 @@ let connectorCleanup = null;
 // ── 1. Initialize BigQuery (Analytics Engine) ───────────────────────────────
 function initBigQuery() {
   if (!bqClient) {
-    bqClient = new BigQuery(); // Automatically picks up Google Cloud credentials
+    bqClient = new BigQuery({
+      projectId: process.env.BIGQUERY_PROJECT_ID || 'mitra-production-core'
+    });
     log.info('Google BigQuery client initialized for massive telemetry analytics.');
   }
   return bqClient;

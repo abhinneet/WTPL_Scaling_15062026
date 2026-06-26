@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "mitra-production-core",
     "public": "public",
     "cleanUrls": true,
     "ignore": [
