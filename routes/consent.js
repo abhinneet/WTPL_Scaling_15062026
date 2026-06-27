@@ -389,9 +389,14 @@ router.post('/ad-consent', authenticate, async (req, res) => {
 router.get('/ad-consent/:userId', authenticate, async (req, res) => {
   try {
     const result = await query(
-      `SELECT date_of_birth, is_minor, ad_consent_given, 
-              ad_consent_by, ad_consent_at
-       FROM users WHERE id = $1`,
+      `SELECT u.id,
+              a.date_of_birth, a.is_minor,
+              a.consent_given   AS ad_consent_given,
+              a.parent_email    AS ad_consent_by,
+              a.updated_at      AS ad_consent_at
+       FROM users u
+       LEFT JOIN ad_consent a ON a.user_id = u.id
+       WHERE u.id = $1`,
       [req.params.userId]
     );
 

@@ -72,6 +72,7 @@ async function boot() {
 
   const authRoutes          = require('./routes/auth');
   const analyticsRoutes     = require('./routes/analytics');
+  const analyticsXlsxRoutes = require('./routes/analytics_xlsx');
   const unityRoutes         = require('./routes/unity');
   const curriculumRoutes    = require('./routes/curriculum');
   const appBuilderRoutes    = require('./routes/appBuilder');
@@ -261,6 +262,7 @@ async function boot() {
   app.use('/api/auth',         authLimiter, authRoutes);
   app.use('/api/dashboard',    dashboardRoutes);
   app.use('/api/analytics',    analyticsRoutes);
+  app.use('/api/analytics',    analyticsXlsxRoutes);
   app.use('/api/unity',        unityRoutes);
   app.use('/api/ar',           arAssetsRoutes);
   app.use('/api/curriculum',   curriculumRoutes);

@@ -63,7 +63,7 @@
 
       // 4. Send the Token and New Password to your backend
       try {
-        const response = await fetch('https://watchaugs-mitra.web.app/api/auth/reset-password', {
+        const response = await fetch('/api/auth/reset-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: token, newPassword: p1 })

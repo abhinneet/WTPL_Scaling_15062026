@@ -379,10 +379,13 @@ router.get('/me', authenticate, async (req, res) => {
     const result = await query(
       `SELECT id, full_name, email, role, assigned_state, assigned_district,
               is_active, last_login_at, created_at,
+              perm_view_dashboard, perm_view_curriculum, perm_view_controls,
+              perm_view_ar_assets, perm_view_notif, perm_view_users,
+              perm_view_legal, perm_view_settings, perm_view_ads,
+              perm_delete_users, perm_manage_compliance, perm_view_app_builder,
               perm_publish_apps, perm_upload_unity, perm_manage_geo,
               perm_view_analytics, perm_create_users, perm_edit_curriculum,
-              perm_approve_content, perm_export_data, perm_manage_ads,
-              perm_replay_analytics
+              perm_approve_content, perm_export_data, perm_manage_ads, perm_replay_analytics
        FROM users WHERE id = $1`,
       [req.user.id]
     );
@@ -430,11 +433,10 @@ async function sendResetEmail({ to, name, link }) {
   console.log(`[MITRA EMAIL ENGINE] Preparing to send email to: ${to}`);
   
   // Guard: fail fast with a clear message if SMTP credentials are missing
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    const missing = [!process.env.SMTP_USER && 'SMTP_USER', !process.env.SMTP_PASS && 'SMTP_PASS'].filter(Boolean).join(', ');
-    const err = new Error(`Email not sent — missing environment variable(s): ${missing}. Set them in Cloud Run → Edit & Deploy → Variables & Secrets.`);
-    console.error(`[MITRA EMAIL ENGINE] CONFIGURATION ERROR:`, err.message);
-    throw err;
+  const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  if (!process.env.SMTP_USER || !smtpPass) {
+    console.warn('[MITRA EMAIL ENGINE] SMTP not configured — skipping email');
+    return;
   }
   
   try {
@@ -447,7 +449,7 @@ async function sendResetEmail({ to, name, link }) {
       secure: false, // TLS requires this to be false on port 587
       auth: { 
         user: process.env.SMTP_USER, // Your ceo@watchaugs.com email
-        pass: process.env.SMTP_PASS  // The 16-character App Password generated on May 30
+        pass: smtpPass  // The 16-character App Password generated on May 30
       },
       pool: true,
       maxConnections: 1

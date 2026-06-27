@@ -601,4 +601,32 @@ router.get('/analytics/granular/export', requirePerm('perm_export_data'), async 
   }
 });
 
+// GET /api/ads/kpi — Dashboard stat cards for Advertisements page
+router.get('/kpi', requirePerm('perm_view_analytics'), async (req, res) => {
+  try {
+    const [campaigns, impressions, states] = await Promise.all([
+      query(`SELECT COUNT(*) AS active FROM ad_campaigns WHERE status = 'live'`),
+      query(`SELECT COALESCE(SUM(1),0) AS total FROM ad_impressions`),
+      query(`SELECT COUNT(DISTINCT state) AS targeted FROM ad_impressions`)
+    ]);
+
+    const daily = await query(`
+      SELECT ROUND(COUNT(*)::NUMERIC / NULLIF(
+        EXTRACT(DAY FROM NOW() - MIN(created_at)), 0
+      ), 1) AS avg_daily
+      FROM ad_impressions
+    `);
+
+    res.json({
+      active_campaigns : parseInt(campaigns.rows[0].active)   || 0,
+      total_impressions: parseInt(impressions.rows[0].total)  || 0,
+      avg_daily_push   : parseFloat(daily.rows[0].avg_daily)  || 0,
+      states_targeted  : parseInt(states.rows[0].targeted)    || 0
+    });
+  } catch (err) {
+    console.error('[ads/kpi]', err.message);
+    res.status(500).json({ error: 'Failed to load ad KPIs' });
+  }
+});
+
 module.exports = router;

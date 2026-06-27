@@ -38,6 +38,10 @@ const ALLOWED_ROLES = new Set([
 const PROFILE_COLUMNS = `
   id, full_name, email, role, assigned_state, assigned_district,
   is_active, last_login_at, created_at,
+  perm_view_dashboard, perm_view_curriculum, perm_view_controls,
+  perm_view_ar_assets, perm_view_notif, perm_view_users,
+  perm_view_legal, perm_view_settings, perm_view_ads,
+  perm_delete_users, perm_manage_compliance, perm_view_app_builder,
   perm_publish_apps, perm_upload_unity, perm_manage_geo,
   perm_view_analytics, perm_create_users, perm_edit_curriculum,
   perm_approve_content, perm_export_data, perm_manage_ads, perm_replay_analytics
@@ -203,16 +207,24 @@ router.post('/', requirePerm('perm_create_users'), async (req, res) => {
       `INSERT INTO users (
          id, full_name, email, password_hash, role,
          assigned_state, assigned_district,
+         perm_view_dashboard, perm_view_curriculum, perm_view_controls,
+         perm_view_ar_assets, perm_view_notif, perm_view_users,
+         perm_view_legal, perm_view_settings, perm_view_ads,
+         perm_delete_users, perm_manage_compliance, perm_view_app_builder,
          perm_publish_apps, perm_upload_unity, perm_manage_geo,
          perm_view_analytics, perm_create_users, perm_edit_curriculum,
          perm_approve_content, perm_export_data, perm_manage_ads, perm_replay_analytics,
          is_active
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,true)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,true)
        ON CONFLICT (email) DO NOTHING
        RETURNING ${PROFILE_COLUMNS}`,
       [
         id, full_name, email.toLowerCase().trim(), hash, role,
         assigned_state, assigned_district || null,
+        true, true, true,
+        true, true, true,
+        true, true, finalPerms.manage_ads || false,
+        false, finalPerms.manage_ads || false, true,
         finalPerms.publish_apps, finalPerms.upload_unity, finalPerms.manage_geo,
         finalPerms.view_analytics, finalPerms.create_users, finalPerms.edit_curriculum,
         finalPerms.approve_content, finalPerms.export_data, finalPerms.manage_ads, finalPerms.replay_analytics,

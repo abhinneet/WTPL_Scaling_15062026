@@ -5064,9 +5064,11 @@ function toggleExportMenu() {
     const vw = window.innerWidth;
     const top  = (r.bottom + 4 + 160 > vh) ? (r.top - 164) : (r.bottom + 4);
     const left = Math.min(r.left, vw - mw - 8);
-    menu.style.top    = top  + 'px';
-    menu.style.left   = left + 'px';
-    menu.style.display = 'block';
+    menu.style.position = 'fixed';
+    menu.style.zIndex   = '99999';
+    menu.style.top      = top  + 'px';
+    menu.style.left     = left + 'px';
+    menu.style.display  = 'block';
   } else {
     menu.style.display = 'none';
   }
@@ -5085,21 +5087,41 @@ document.addEventListener('click', function(event) {
 async function analyticsExport(format, subtype) {
   format = (format || 'xlsx').toString();
   document.getElementById('export-menu').style.display = 'none';
-  showToast('⏳ Generating ' + format.toUpperCase() + ' export from live data...');
+  const token = localStorage.getItem('mitra_token') || '';
+
+  if (format === 'xlsx') {
+    showToast('⏳ Building Analytics Workbook...');
+    try {
+      const res = await fetch('/api/analytics/export-xlsx', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) { showToast('❌ Export failed (' + res.status + ')'); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'MITRA_Analytics_' + new Date().toISOString().slice(0,7) + '.xlsx';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+      showToast('✅ Analytics Workbook downloaded');
+    } catch(e) { showToast('❌ Export failed — check connection'); }
+    return;
+  }
+
+  showToast('⏳ Generating CSV export...');
   try {
-    const token = localStorage.getItem('mitra_token') || '';
-    const res = await fetch(`/api/analytics/export?format=${format}&type=telemetry&days=30`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const res = await fetch('/api/analytics/export?format=csv&type=telemetry&days=30', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!res.ok) { showToast('❌ Export failed'); return; }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `MITRA_Analytics_${new Date().toISOString().slice(0,10)}.${format}`;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'MITRA_Telemetry_' + new Date().toISOString().slice(0,10) + '.csv';
     document.body.appendChild(a); a.click();
     setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
-    showToast('✅ Export downloaded');
+    showToast('✅ CSV downloaded');
   } catch(e) { showToast('❌ Export failed — check connection'); }
 }
 
@@ -8955,7 +8977,9 @@ async function doLogin() {
     }
     
     // Store token
-    localStorage.setItem('mitra_token', data.token || data.access_token || '');
+    const savedToken = data.token || data.access_token || '';
+    localStorage.setItem('mitra_token', savedToken);
+    localStorage.setItem('token', savedToken);
     if (data.refresh_token) localStorage.setItem('mitra_refresh_token', data.refresh_token);
     
     // 👇 THE BULLETPROOF ROLE TRANSLATOR 👇

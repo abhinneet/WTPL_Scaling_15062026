@@ -75,7 +75,7 @@ router.get('/overview', requirePerm('perm_view_analytics'), async (req, res) => 
 router.get('/replay', requirePerm('perm_replay_analytics'), async (req, res) => {
   try {
     const { state, district, class_grade, subject, days = 30 } = req.query;
-    const conds = [`recorded_at > NOW() - INTERVAL '${parseInt(days)} days'`];
+    const conds = [`created_at > NOW() - INTERVAL '${parseInt(days)} days'`];
     const params = [];
     // FIX: treat empty strings as missing (frontend sends state='' when no filter selected)
     if (state       && state.trim())       { params.push(state.trim());       conds.push(`state = $${params.length}`); }
@@ -161,10 +161,10 @@ router.get('/export', requirePerm('perm_export_data'), async (req, res) => {
                n.name AS topic, t.app_language,
                t.session_minutes, t.replay_count, t.completed,
                t.offline_session, t.device_tier,
-               TO_CHAR(t.recorded_at,'YYYY-MM-DD HH24:MI') AS recorded_at
+               TO_CHAR(t.created_at,'YYYY-MM-DD HH24:MI') AS created_at
         FROM app_telemetry t
         LEFT JOIN curriculum_nodes n ON n.id = t.topic_id
-        WHERE t.recorded_at > NOW() - INTERVAL '${parseInt(days)} days'
+        WHERE created_at > NOW() - INTERVAL '${parseInt(days)} days'
         ORDER BY t.replay_count DESC LIMIT 10000
       `);
     } else {
@@ -176,13 +176,19 @@ router.get('/export', requirePerm('perm_export_data'), async (req, res) => {
                ROUND(100.0*SUM(CASE WHEN offline_session THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),1) AS offline_pct,
                ROUND(100.0*SUM(CASE WHEN dropped_off THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),1)     AS dropoff_pct
         FROM app_telemetry
-        WHERE recorded_at > NOW() - INTERVAL '${parseInt(days)} days'
+        WHERE created_at > NOW() - INTERVAL '${parseInt(days)} days'
         GROUP BY state, district, class_grade, subject
         ORDER BY active_users DESC
       `);
     }
 
-    const ws   = XLSX.utils.json_to_sheet(result.rows);
+    // Fix: json_to_sheet([]) crashes in xlsx 0.18.x — use headers row as fallback
+    const headers = result.rows.length > 0
+      ? Object.keys(result.rows[0])
+      : ['state','district','class_grade','subject','avg_session_mins',
+         'avg_replays','active_users','offline_pct','dropoff_pct'];
+    const wsData = [headers, ...result.rows.map(r => headers.map(h => r[h] ?? ''))];
+    const ws   = XLSX.utils.aoa_to_sheet(wsData);
     const wb   = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Analytics');
     const ext      = format === 'csv' ? 'csv' : 'xlsx';
@@ -200,7 +206,7 @@ router.get('/export', requirePerm('perm_export_data'), async (req, res) => {
 
 // ── Helper — FIX: empty string treated same as missing ────────────────────────
 function buildWhere({ state, district, days = 30 }) {
-  const conds  = [`recorded_at > NOW() - INTERVAL '${parseInt(days)} days'`];
+  const conds  = [`created_at > NOW() - INTERVAL '${parseInt(days)} days'`];
   const params = [];
   if (state    && state.trim())    { params.push(state.trim());    conds.push(`state    = $${params.length}`); }
   if (district && district.trim()) { params.push(district.trim()); conds.push(`district = $${params.length}`); }
@@ -248,14 +254,15 @@ router.get('/telemetry/summary', async (req, res) => {
         ROUND(AVG(t.session_minutes) * 60) AS avg_module_seconds,
         ROUND((1.0 - AVG(CASE WHEN t.completed THEN 1.0 ELSE 0.0 END)) * 100, 1) AS drop,
         ROUND(AVG(CASE WHEN t.offline_session THEN 1.0 ELSE 0.0 END) * 100, 1) AS offline,
-        MODE() WITHIN GROUP (ORDER BY t.subject) AS subject
+        COALESCE(MODE() WITHIN GROUP (ORDER BY t.subject), '—') AS subject
       FROM app_telemetry t
-      JOIN india_states s ON s.code = t.state
+      LEFT JOIN india_states s ON s.code = t.state
       WHERE ${conds.join(' AND ')}
+      HAVING COUNT(t.student_id) > 0
       GROUP BY s.name, s.code, t.district ORDER BY users DESC
     `, params);
 
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('Telemetry summary error:', err.message);
     res.status(500).json({ error: 'Failed to fetch telemetry data' });
