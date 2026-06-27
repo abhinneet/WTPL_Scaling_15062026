@@ -1560,11 +1560,13 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="hero" style="background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(6,182,212,.08),rgba(16,185,129,.06));border-color:rgba(99,102,241,.25);margin-bottom:20px">
     <div class="hero-title">📊 <span class="grad">Analytics Engine</span> — Deep Insights Platform</div>
     <div style="font-size:13px;color:var(--text2);max-width:620px;line-height:1.6">Student usage, classroom engagement, location heatmaps, quiz performance and predictive insights — streamed live from deployed student apps across India.</div>
-    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;position:relative">
-      <button class="btn btn-p" onclick="toggleExportMenu()">📥 Export Data</button>
-      <div id="export-menu" style="display:none; position:absolute; left:0; top:44px; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:8px; z-index:100; min-width:140px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-        <button class="btn btn-s" style="width:100%; justify-content:flex-start; border:none; margin-bottom:4px;" onclick="exportData('csv')">Export as .CSV</button>
-        <button class="btn btn-s" style="width:100%; justify-content:flex-start; border:none;" onclick="exportData('xlsx')">Export as .XLSX</button>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+      <div style="position:relative;">
+        <button class="btn btn-p" onclick="toggleExportMenu()" id="export-toggle-btn">📥 Export Data</button>
+        <div id="export-menu" style="display:none; position:fixed; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:8px; z-index:99999; min-width:160px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          <button class="btn btn-s" style="width:100%; justify-content:flex-start; border:none; margin-bottom:4px;" onclick="analyticsExport('csv')">Export as .CSV</button>
+          <button class="btn btn-s" style="width:100%; justify-content:flex-start; border:none;" onclick="analyticsExport('xlsx')">Export as .XLSX</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5054,7 +5056,20 @@ async function loadReplayAnalytics() {
 
 function toggleExportMenu() {
   const menu = document.getElementById('export-menu');
-  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  const btn  = document.getElementById('export-toggle-btn');
+  if (menu.style.display === 'none') {
+    const r  = btn.getBoundingClientRect();
+    const mw = 160;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const top  = (r.bottom + 4 + 160 > vh) ? (r.top - 164) : (r.bottom + 4);
+    const left = Math.min(r.left, vw - mw - 8);
+    menu.style.top    = top  + 'px';
+    menu.style.left   = left + 'px';
+    menu.style.display = 'block';
+  } else {
+    menu.style.display = 'none';
+  }
 }
 
 document.addEventListener('click', function(event) {
@@ -5067,9 +5082,10 @@ document.addEventListener('click', function(event) {
   }
 });
 
-async function exportData(format) {
+async function analyticsExport(format, subtype) {
+  format = (format || 'xlsx').toString();
   document.getElementById('export-menu').style.display = 'none';
-  showToast(`⏳ Generating ${format.toUpperCase()} export from live data...`);
+  showToast('⏳ Generating ' + format.toUpperCase() + ' export from live data...');
   try {
     const token = localStorage.getItem('mitra_token') || '';
     const res = await fetch(`/api/analytics/export?format=${format}&type=telemetry&days=30`, {

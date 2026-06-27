@@ -1,0 +1,184 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MITRA Migration v003 — Missing Tables & Columns
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── 1. app_telemetry — already exists, add any missing columns ───────────────
+ALTER TABLE app_telemetry
+  ADD COLUMN IF NOT EXISTS student_id       VARCHAR(200),
+  ADD COLUMN IF NOT EXISTS school_id        VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS class_grade      VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS subject          VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS topic_id         UUID,
+  ADD COLUMN IF NOT EXISTS session_minutes  NUMERIC(8,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS replay_count     INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS completed        BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS dropped_off      BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS offline_session  BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS app_language     VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS device_tier      VARCHAR(50);
+
+CREATE INDEX IF NOT EXISTS idx_app_telemetry_student  ON app_telemetry(student_id);
+CREATE INDEX IF NOT EXISTS idx_app_telemetry_state    ON app_telemetry(state_code);
+CREATE INDEX IF NOT EXISTS idx_app_telemetry_created  ON app_telemetry(created_at DESC);
+
+-- ── 2. ar_assets ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ar_assets (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic_id      UUID REFERENCES curriculum_topics(id) ON DELETE SET NULL,
+  asset_type    VARCHAR(50) DEFAULT 'model',
+  gcs_path      TEXT,
+  public_url    TEXT,
+  file_size     BIGINT,
+  filename      VARCHAR(500),
+  description   TEXT,
+  uploaded_by   VARCHAR(200),
+  uploaded_at   TIMESTAMPTZ DEFAULT NOW(),
+  is_active     BOOLEAN DEFAULT TRUE
+);
+CREATE INDEX IF NOT EXISTS idx_ar_assets_topic    ON ar_assets(topic_id);
+CREATE INDEX IF NOT EXISTS idx_ar_assets_uploaded ON ar_assets(uploaded_at DESC);
+
+-- ── 3. advertisements ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS advertisements (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id      UUID REFERENCES ad_campaigns(id) ON DELETE CASCADE,
+  gcs_path         TEXT,
+  public_url       TEXT,
+  file_size        BIGINT,
+  filename         VARCHAR(500),
+  ad_type          VARCHAR(50) DEFAULT 'image',
+  duration_seconds INT,
+  uploaded_by      VARCHAR(200),
+  uploaded_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_advertisements_campaign ON advertisements(campaign_id);
+
+-- ── 4. unity_builds ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS unity_builds (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  build_version   VARCHAR(50),
+  platform        VARCHAR(50),
+  gcs_path        TEXT,
+  public_url      TEXT,
+  file_size       BIGINT,
+  filename        VARCHAR(500),
+  min_os_version  VARCHAR(20) DEFAULT '1.0',
+  status          VARCHAR(50) DEFAULT 'available',
+  uploaded_by     VARCHAR(200),
+  uploaded_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_unity_builds_platform ON unity_builds(platform);
+CREATE INDEX IF NOT EXISTS idx_unity_builds_uploaded ON unity_builds(uploaded_at DESC);
+
+-- ── 5. audit_findings ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS audit_findings (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        VARCHAR(300) NOT NULL,
+  description  TEXT,
+  severity     VARCHAR(50) DEFAULT 'medium',
+  category     VARCHAR(100),
+  status       VARCHAR(50) DEFAULT 'open',
+  resolved_at  TIMESTAMPTZ,
+  resolved_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_findings_severity ON audit_findings(severity);
+CREATE INDEX IF NOT EXISTS idx_audit_findings_status   ON audit_findings(status);
+
+-- ── 6. consents ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS consents (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID REFERENCES users(id) ON DELETE CASCADE,
+  consent_type     VARCHAR(100) NOT NULL,
+  is_active        BOOLEAN DEFAULT TRUE,
+  granted_at       TIMESTAMPTZ DEFAULT NOW(),
+  withdrawn_at     TIMESTAMPTZ,
+  ip_address       INET,
+  user_agent       TEXT,
+  consent_version  VARCHAR(20),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, consent_type)
+);
+CREATE INDEX IF NOT EXISTS idx_consents_user ON consents(user_id);
+
+-- ── 7. consent_audit_log ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS consent_audit_log (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID REFERENCES users(id) ON DELETE SET NULL,
+  consent_type     VARCHAR(100),
+  action           VARCHAR(50),
+  consent_version  VARCHAR(20),
+  ip_address       INET,
+  user_agent       TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_consent_audit_user    ON consent_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_consent_audit_created ON consent_audit_log(created_at DESC);
+
+-- ── 8. parental_consents ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS parental_consents (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id          VARCHAR(200) NOT NULL,
+  guardian_name       VARCHAR(200),
+  guardian_email      VARCHAR(200),
+  guardian_phone      VARCHAR(50),
+  consent_given       BOOLEAN DEFAULT FALSE,
+  consent_date        TIMESTAMPTZ,
+  verification_method VARCHAR(100),
+  recorded_by         UUID REFERENCES users(id) ON DELETE SET NULL,
+  notes               TEXT,
+  updated_at          TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_id)
+);
+
+-- ── 9. ad_consent_log ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ad_consent_log (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID REFERENCES users(id) ON DELETE SET NULL,
+  student_age        INT,
+  consent_given      BOOLEAN DEFAULT FALSE,
+  consent_method     VARCHAR(100),
+  consented_by       VARCHAR(200),
+  consent_ip         INET,
+  consent_user_agent TEXT,
+  ad_type            VARCHAR(50) DEFAULT 'general',
+  created_at         TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ad_consent_user    ON ad_consent_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_ad_consent_created ON ad_consent_log(created_at DESC);
+
+-- ── 10. curriculum_schedules ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS curriculum_schedules (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic_name  VARCHAR(200),
+  node_id     UUID REFERENCES curriculum_nodes(id) ON DELETE CASCADE,
+  publish_at  TIMESTAMPTZ,
+  expires_at  TIMESTAMPTZ,
+  note        TEXT,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(node_id)
+);
+
+-- ── 11. quiz_attempt_answers ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS quiz_attempt_answers (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attempt_id         UUID REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+  question_id        UUID REFERENCES quiz_questions(id) ON DELETE CASCADE,
+  selected_answer    TEXT,
+  is_correct         BOOLEAN,
+  time_taken_seconds INT DEFAULT 0,
+  created_at         TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_qaa_attempt  ON quiz_attempt_answers(attempt_id);
+CREATE INDEX IF NOT EXISTS idx_qaa_question ON quiz_attempt_answers(question_id);
+
+-- ── Seed audit_findings with starter data ─────────────────────────────────────
+INSERT INTO audit_findings (title, description, severity, category, status)
+VALUES
+  ('Firebase Security Rules Review', 'Firestore rules require periodic review', 'medium', 'Security', 'open'),
+  ('API Rate Limiting Audit', 'Verify rate limits are enforced on all public endpoints', 'high', 'Security', 'open'),
+  ('Data Retention Policy', 'Formal data retention schedule not documented', 'medium', 'DPDPA 2023', 'open')
+ON CONFLICT DO NOTHING;
