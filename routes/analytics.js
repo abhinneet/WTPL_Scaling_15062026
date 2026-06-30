@@ -258,8 +258,9 @@ router.get('/telemetry/summary', async (req, res) => {
       FROM app_telemetry t
       LEFT JOIN india_states s ON s.code = t.state
       WHERE ${conds.join(' AND ')}
+      GROUP BY s.name, s.code, t.district
       HAVING COUNT(t.student_id) > 0
-      GROUP BY s.name, s.code, t.district ORDER BY users DESC
+      ORDER BY users DESC
     `, params);
 
     res.json({ success: true, data: result.rows || [] });
